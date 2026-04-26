@@ -93,6 +93,10 @@ New Features
 - Added `IEventRegistrable` interface with `RegisterEvents()` and `UnregisterEvents()` lifecycle stages. `RegisterEvents()` is called after `IInitializable.Initialize()` and before `ILateInitializable.LateInitialize()`. `UnregisterEvents()` is called before `IDisposable.Dispose()`
 - Added `EventRegistrableManager` to manage execution of `IEventRegistrable` objects with priority ordering
 - Added `BindEventRegistrableExecutionOrder` method on `DiContainer`
+- Added `SceneContext.PreInstallMethod` static hook (`Action<SceneContext>`) that runs after `ProjectContext` initialization and before `SceneContext.Install()`
+- Added automatic clearing of `SceneContext.PreInstallMethod` after invocation (single-use) and during editor reset paths to avoid stale delegates when domain reload is disabled
+- Fixed `MonoKernel.OnDestroy()` to only call `EventRegistrableManager.UnregisterEvents()` if initialization has occurred, preventing PlayMode teardown asserts when objects are destroyed before `Start()`/`Initialize()`
+- Added README sections for `ProjectContext` and `SceneContext` static APIs, including lifecycle timing and usage examples
 
 ## Version 9.1.0 (October 13, 2019)
 

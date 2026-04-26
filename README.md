@@ -52,6 +52,7 @@
     - [Optional Binding](#optional-binding)
     - [List Bindings](#list-bindings)
     - [Global Bindings Using Project Context](#global-bindings-using-project-context)
+    - [ProjectContext Static API](#projectcontext-static-api)
     - [Identifiers](#identifiers)
     - [Non Generic Bindings](#non-generic-bindings)
     - [Convention Based Binding](#convention-based-binding)
@@ -66,6 +67,7 @@
   - [Update / Initialization Order](#update--initialization-order)
   - [Zenject Order Of Operations](#zenject-order-of-operations)
   - [Injecting data across scenes](#injecting-data-across-scenes)
+  - [SceneContext Static API](#scenecontext-static-api)
   - [Scene Parenting Using Contract Names](#scene-parenting-using-contract-names)
   - [Default Scene Parents](#default-scene-parents)
   - [ZenAutoInjecter](#zenautoinjecter)
@@ -1890,6 +1892,34 @@ The reason that all the bindings you add to a global installer are available for
 
 Note also that by default, any game objects that are instantiated inside ProjectContext will be parented underneath it by default. If you'd prefer that each newly instantiated object is instead placed at the root of the scene hierarchy (but still marked DontDestroyOnLoad) then you can change this by unchecking the flag 'Parent New Objects Under Context' in the inspector of ProjectContext.
 
+### ProjectContext Static API
+
+`ProjectContext` exposes four static C# events that fire at each phase of its own initialization lifecycle. These are useful when you need to hook into the project context setup from code that cannot be injected (e.g. editor tooling, test harnesses, or bootstrapping logic that must run before any container is available).
+
+| Member | Type | When it fires |
+|---|---|---|
+| `PreInstall` | `Action` | Before `InstallBindings()` runs on any ProjectContext installer |
+| `PostInstall` | `Action` | After all ProjectContext installers have finished |
+| `PreResolve` | `Action` | Before `ResolveRoots()` is called on the ProjectContext container |
+| `PostResolve` | `Action` | After the ProjectContext container has fully resolved |
+
+**Example — registering a listener before the project context initializes:**
+
+```csharp
+// Called from, e.g., a RuntimeInitializeOnLoadMethod or test setup
+ProjectContext.PreInstall += () =>
+{
+    Debug.Log("ProjectContext is about to install bindings");
+};
+
+ProjectContext.PostResolve += () =>
+{
+    Debug.Log("ProjectContext has fully resolved");
+};
+```
+
+All four events are instance-backed by the static fields on `ProjectContext` and are reset in `ResetInstanceFields()` to support the editor's "Enter Play Mode without domain reload" feature.
+
 ### Identifiers
 
 ---
@@ -2497,6 +2527,55 @@ public class Foo
 ```
 
 The `ZenjectSceneLoader` class also allows for more complex scenarios, such as loading a scene as a "child" of the current scene, which would cause the new scene to inherit all the dependencies in the current scene. However, it is often better to use [Scene Contract Names](#scene-parenting-using-contract-names) for this instead.
+
+## SceneContext Static API
+
+`SceneContext` exposes several static members that control how a scene's DI context is initialized. These are used internally by `ZenjectSceneLoader` and can also be set manually for advanced bootstrapping scenarios.
+
+| Member | Type | Description |
+|---|---|---|
+| `ExtraBindingsInstallMethod` | `Action<DiContainer>` | Invoked during `Install()` after all installers have run. Used by `ZenjectSceneLoader` to inject additional bindings into the next loaded scene. Consumed and reset to `null` after each scene load. |
+| `ExtraBindingsLateInstallMethod` | `Action<DiContainer>` | Same as `ExtraBindingsInstallMethod`, but invoked after late installers. Consumed and reset to `null` after each scene load. |
+| `ParentContainers` | `IEnumerable<DiContainer>` | Overrides which container(s) act as parent for the next scene's `DiContainer`. Used by `ZenjectSceneLoader` for child/sibling scene relationships. Consumed and reset to `null` after each scene load. |
+| `PreInstallMethod` | `Action<SceneContext>` | Invoked synchronously in `RunInternal()`, after `ProjectContext` resolves and **before** `Install()`. **Single-use**: auto-cleared to `null` after it fires, so it only runs for the first loaded scene. Also cleared in `ResetInstanceFields()` for the editor domain-reload feature. |
+
+### ExtraBindingsInstallMethod and ExtraBindingsLateInstallMethod
+
+These are set internally by `ZenjectSceneLoader.LoadScene` to pass extra bindings into a scene being loaded. You can also set them directly if you are loading scenes outside of `ZenjectSceneLoader`:
+
+```csharp
+SceneContext.ExtraBindingsInstallMethod = (container) =>
+{
+    container.BindInstance(myObject);
+};
+
+SceneManager.LoadScene("MyScene");
+```
+
+### ParentContainers
+
+Overrides the parent container for the next scene. Normally the parent is the `ProjectContext` container. `ZenjectSceneLoader` uses this to implement child scene loading.
+
+### PreInstallMethod
+
+`PreInstallMethod` is a single-use synchronous hook that fires once — for the very first scene loaded in a play session. It runs after `ProjectContext` has resolved (so all project-level bindings are available) but before `SceneContext.Install()` (so scene-level installers have not yet run).
+
+Its primary use is synchronous setup that must complete before the first scene's installers run. Asset preloading is the canonical example: by the time any `MonoInstaller.InstallBindings()` executes, all addressable assets are already in memory.
+
+```csharp
+// Inside a class resolved by ProjectContext (e.g. in IInitializable.Initialize):
+SceneContext.PreInstallMethod = (sceneContext) =>
+{
+    // This runs synchronously before InstallBindings() on any scene installer.
+    // WaitForCompletion() is safe here because SceneContext initialization is synchronous.
+    string sceneName = sceneContext.gameObject.scene.name;
+    PreloadAssetsForScene(sceneName);
+};
+```
+
+**Single-use guarantee**: after `PreInstallMethod` fires, it is immediately set to `null`. Subsequent scene loads (via `SceneManager.LoadSceneAsync` or `ZenjectSceneLoader`) do not trigger it — those scenes are responsible for their own setup via their installers or the async preload path.
+
+**Editor support**: `PreInstallMethod` is also cleared in `ResetInstanceFields()`, which is called when the editor's "Enter Play Mode without domain reload" feature is enabled. This prevents stale delegates from a previous play session leaking into the next one.
 
 ## Scene Parenting Using Contract Names
 

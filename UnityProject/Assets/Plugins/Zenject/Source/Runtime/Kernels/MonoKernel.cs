@@ -126,7 +126,11 @@ namespace Zenject
                 }
                 else
                 {
-                    _eventRegistrableManager.UnregisterEvents();
+                    if (_hasInitialized)
+                    {
+                        _eventRegistrableManager.UnregisterEvents();
+                    }
+
                     _disposablesManager.Dispose();
                     _disposablesManager.LateDispose();
                 }

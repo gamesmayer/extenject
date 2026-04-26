@@ -34,6 +34,8 @@ namespace Zenject
 
         public static IEnumerable<DiContainer> ParentContainers;
 
+        public static Action<SceneContext> PreInstallMethod;
+
         [FormerlySerializedAs("ParentNewObjectsUnderRoot")]
         [FormerlySerializedAs("_parentNewObjectsUnderRoot")]
         [Tooltip("When true, objects that are created at runtime will be parented to the SceneContext")]
@@ -117,10 +119,27 @@ namespace Zenject
             {
                 return;
             }
-            
+
             ExtraBindingsInstallMethod = null;
             ParentContainers = null;
             ExtraBindingsLateInstallMethod = null;
+        }
+#endif
+
+#if UNITY_EDITOR
+        protected override void ResetInstanceFields()
+        {
+            base.ResetInstanceFields();
+
+            _container = null;
+            _decoratorContexts.Clear();
+            _hasInstalled = false;
+            _hasResolved = false;
+            PreInstall = null;
+            PostInstall = null;
+            PreResolve = null;
+            PostResolve = null;
+            PreInstallMethod = null;
         }
 #endif
         protected override void Awake()
@@ -141,22 +160,6 @@ namespace Zenject
             _container.UnbindAll();
         }
 
-#if UNITY_EDITOR
-        protected override void ResetInstanceFields()
-        {
-            base.ResetInstanceFields();
-            
-            _container = null;
-            _decoratorContexts.Clear();
-            _hasInstalled = false;
-            _hasResolved = false;
-            PreInstall = null;
-            PostInstall = null;
-            PreResolve = null;
-            PostResolve = null;
-        }
-#endif
-
         public void Validate()
         {
             Assert.That(IsValidating);
@@ -169,6 +172,11 @@ namespace Zenject
         {
             // We always want to initialize ProjectContext as early as possible
             ProjectContext.Instance.EnsureIsInitialized();
+
+            if (PreInstallMethod != null)
+            {
+                PreInstallMethod(this);
+            }
 
 #if UNITY_EDITOR
             using (ProfileBlock.Start("Zenject.SceneContext.Install"))
