@@ -1,6 +1,8 @@
 # Async Extensions
 `Status: Experimental`
 
+See also: [Async startup](../README.md#async-startup), for coroutines that must finish before the ProjectContext resolves or the first scene installs (e.g. preloading Addressables on WebGL).
+
 
 ## Table Of Contents
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->

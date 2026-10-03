@@ -1,6 +1,7 @@
 #if !NOT_UNITY3D
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
 using ModestTree;
@@ -16,10 +17,18 @@ namespace Zenject
         public static event Action PreResolve;
         public static event Action PostResolve;
 
+        // Single-use asynchronous hook that runs after PreResolve and before ResolveRoots() when the
+        // ProjectContext is initialized through EnsureIsInitializedRoutine() (SceneContext does this).
+        // It is cleared as soon as it is read. See "Async startup" in the README.
+        public static Func<IEnumerator> PreResolveRoutine;
+
         public const string ProjectContextResourcePath = "ProjectContext";
         public const string ProjectContextResourcePathOld = "ProjectCompositionRoot";
 
         static ProjectContext _instance;
+
+        // True while EnsureIsInitializedRoutine() waits for PreResolveRoutine
+        static bool _isAwaitingPreResolveRoutine;
 
         // TODO: Set this to false the next time major version is incremented
         [Tooltip("When true, objects that are created at runtime will be parented to the ProjectContext")]
@@ -55,6 +64,11 @@ namespace Zenject
                 {
                     InstantiateAndInitialize();
                     Assert.IsNotNull(_instance);
+                }
+                else if (_isAwaitingPreResolveRoutine)
+                {
+                    throw Assert.CreateException(
+                        "ProjectContext.Instance was accessed while ProjectContext is waiting for its PreResolveRoutine. The container is installed but not resolved yet.");
                 }
 
                 return _instance;
@@ -113,6 +127,65 @@ namespace Zenject
 
         static void InstantiateAndInitialize()
         {
+            var prefabWasActive = Instantiate();
+
+            // Note: We use Initialize instead of awake here in case someone calls
+            // ProjectContext.Instance while ProjectContext is initializing
+            _instance.Initialize();
+
+            Activate(prefabWasActive);
+        }
+
+        // Asynchronous counterpart of ProjectContext.Instance: instantiates and initializes the ProjectContext,
+        // waiting for PreResolveRoutine (if one is registered during install) before resolving the container.
+        // beforePreResolveRoutine is called right before PreResolveRoutine is invoked.
+        // Does nothing if the ProjectContext already exists.
+        public static IEnumerator EnsureIsInitializedRoutine(Action beforePreResolveRoutine = null)
+        {
+            if (_instance != null)
+            {
+                if (_isAwaitingPreResolveRoutine)
+                {
+                    throw Assert.CreateException(
+                        "ProjectContext is already being initialized asynchronously by another context.");
+                }
+
+                yield break;
+            }
+
+            var prefabWasActive = Instantiate();
+
+            _instance.InstallPhase();
+
+            var preResolveRoutine = PreResolveRoutine;
+            PreResolveRoutine = null;
+
+            if (preResolveRoutine != null && !_instance._container.IsValidating)
+            {
+                if (beforePreResolveRoutine != null)
+                {
+                    beforePreResolveRoutine();
+                }
+
+                _isAwaitingPreResolveRoutine = true;
+
+                try
+                {
+                    yield return preResolveRoutine();
+                }
+                finally
+                {
+                    _isAwaitingPreResolveRoutine = false;
+                }
+            }
+
+            _instance.ResolvePhase();
+
+            Activate(prefabWasActive);
+        }
+
+        static bool Instantiate()
+        {
 #if UNITY_EDITOR
             ProfileBlock.UnityMainThread = Thread.CurrentThread;
 #endif
@@ -170,10 +243,11 @@ namespace Zenject
                 }
             }
 
-            // Note: We use Initialize instead of awake here in case someone calls
-            // ProjectContext.Instance while ProjectContext is initializing
-            _instance.Initialize();
+            return prefabWasActive;
+        }
 
+        static void Activate(bool prefabWasActive)
+        {
             if (prefabWasActive)
             {
 #if ZEN_INTERNAL_PROFILING
@@ -200,7 +274,9 @@ namespace Zenject
             PostInstall = null;
             PreResolve = null;
             PostResolve = null;
+            PreResolveRoutine = null;
             _instance = null;
+            _isAwaitingPreResolveRoutine = false;
         }
 #endif
 
@@ -231,6 +307,24 @@ namespace Zenject
         }
 
         public void Initialize()
+        {
+            InstallPhase();
+
+            if (PreResolveRoutine != null)
+            {
+                PreResolveRoutine = null;
+
+                if (!_container.IsValidating)
+                {
+                    throw Assert.CreateException(
+                        "ProjectContext.PreResolveRoutine is set, but ProjectContext is being initialized synchronously (ProjectContext.Instance or Initialize()). Let a SceneContext initialize it, or use ProjectContext.EnsureIsInitializedRoutine().");
+                }
+            }
+
+            ResolvePhase();
+        }
+
+        void InstallPhase()
         {
             Assert.IsNull(_container);
             
@@ -288,7 +382,10 @@ namespace Zenject
             {
                 PreResolve();
             }
+        }
 
+        void ResolvePhase()
+        {
             _container.ResolveRoots();
 
             if (PostResolve != null)

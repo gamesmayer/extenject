@@ -1,6 +1,7 @@
 #if !NOT_UNITY3D
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using ModestTree;
@@ -36,6 +37,10 @@ namespace Zenject
 
         public static Action<SceneContext> PreInstallMethod;
 
+        // Single-use asynchronous hook that runs after PreInstallMethod and before Install().
+        // It is cleared as soon as it is read. See "Async startup" in the README.
+        public static Func<SceneContext, IEnumerator> PreInstallRoutine;
+
         [FormerlySerializedAs("ParentNewObjectsUnderRoot")]
         [FormerlySerializedAs("_parentNewObjectsUnderRoot")]
         [Tooltip("When true, objects that are created at runtime will be parented to the SceneContext")]
@@ -56,6 +61,10 @@ namespace Zenject
 
         bool _hasInstalled;
         bool _hasResolved;
+
+        // Async startup: pending enumerators (innermost on top) and the objects deactivated while waiting
+        readonly Stack<IEnumerator> _runSteps = new Stack<IEnumerator>();
+        readonly List<GameObject> _deactivatedObjects = new List<GameObject>();
 
         public override DiContainer Container
         {
@@ -140,6 +149,9 @@ namespace Zenject
             PreResolve = null;
             PostResolve = null;
             PreInstallMethod = null;
+            PreInstallRoutine = null;
+            _runSteps.Clear();
+            _deactivatedObjects.Clear();
         }
 #endif
         protected override void Awake()
@@ -157,7 +169,13 @@ namespace Zenject
 
         protected virtual void OnDestroy()
         {
-            _container.UnbindAll();
+            DisposeRunSteps();
+
+            // The container doesn't exist yet if the scene is destroyed during an async startup
+            if (_container != null)
+            {
+                _container.UnbindAll();
+            }
         }
 
         public void Validate()
@@ -170,12 +188,55 @@ namespace Zenject
 
         protected override void RunInternal()
         {
+            // The steps run synchronously, exactly as before, unless ProjectContext.PreResolveRoutine or
+            // PreInstallRoutine is registered. Then the scene's objects are deactivated before the routine is
+            // invoked (so they are still injected before their Awake()) and the run continues in a coroutine
+            // for as long as the routines need to wait.
+            _runSteps.Clear();
+            _runSteps.Push(RunSteps());
+
+            object yieldInstruction;
+            bool isWaiting;
+
+            try
+            {
+                isWaiting = AdvanceRunSteps(out yieldInstruction);
+            }
+            catch (Exception exception)
+            {
+                if (!IsInitializing)
+                {
+                    throw;
+                }
+
+                FailAsyncStartup(exception);
+                return;
+            }
+
+            if (isWaiting)
+            {
+                StartCoroutine(ContinueRunAsync(yieldInstruction));
+            }
+        }
+
+        IEnumerator RunSteps()
+        {
             // We always want to initialize ProjectContext as early as possible
-            ProjectContext.Instance.EnsureIsInitialized();
+            yield return ProjectContext.EnsureIsInitializedRoutine(BeginAsyncStartup);
 
             if (PreInstallMethod != null)
             {
                 PreInstallMethod(this);
+            }
+
+            var preInstallRoutine = PreInstallRoutine;
+            PreInstallRoutine = null;
+
+            if (preInstallRoutine != null)
+            {
+                BeginAsyncStartup();
+
+                yield return preInstallRoutine(this);
             }
 
 #if UNITY_EDITOR
@@ -191,6 +252,124 @@ namespace Zenject
             {
                 Resolve();
             }
+
+            if (IsInitializing)
+            {
+                ReactivateSceneObjects();
+                CompleteDeferredRun();
+            }
+        }
+
+        void BeginAsyncStartup()
+        {
+            if (!IsInitializing)
+            {
+                DeactivateSceneObjects();
+                DeferRun();
+            }
+        }
+
+        void FailAsyncStartup(Exception exception)
+        {
+            // The scene stays deactivated and the context uninitialized: it is never run half-installed.
+            DisposeRunSteps();
+            FailDeferredRun();
+            Debug.LogException(exception, this);
+        }
+
+        // Runs the pending steps (flattening nested enumerators) until one yields something to wait for.
+        // Returns false once every step has finished.
+        bool AdvanceRunSteps(out object yieldInstruction)
+        {
+            while (_runSteps.Count > 0)
+            {
+                var step = _runSteps.Peek();
+
+                if (!step.MoveNext())
+                {
+                    _runSteps.Pop();
+                }
+                else if (step.Current is IEnumerator nestedStep)
+                {
+                    _runSteps.Push(nestedStep);
+                }
+                else
+                {
+                    yieldInstruction = step.Current;
+                    return true;
+                }
+            }
+
+            yieldInstruction = null;
+            return false;
+        }
+
+        IEnumerator ContinueRunAsync(object yieldInstruction)
+        {
+            var isWaiting = true;
+
+            while (isWaiting)
+            {
+                yield return yieldInstruction;
+
+                try
+                {
+                    isWaiting = AdvanceRunSteps(out yieldInstruction);
+                }
+                catch (Exception exception)
+                {
+                    FailAsyncStartup(exception);
+                    yield break;
+                }
+            }
+        }
+
+        // Disposing the pending enumerators runs their finally blocks (e.g. ProjectContext's async state)
+        void DisposeRunSteps()
+        {
+            while (_runSteps.Count > 0)
+            {
+                (_runSteps.Pop() as IDisposable)?.Dispose();
+            }
+        }
+
+        void DeactivateSceneObjects()
+        {
+            var contextRoot = transform.root.gameObject;
+
+            foreach (var root in ZenUtilInternal.GetRootGameObjects(gameObject.scene))
+            {
+                if (root != contextRoot && root.activeSelf)
+                {
+                    _deactivatedObjects.Add(root);
+                }
+            }
+
+            foreach (Transform child in transform)
+            {
+                if (child.gameObject.activeSelf)
+                {
+                    _deactivatedObjects.Add(child.gameObject);
+                }
+            }
+
+            foreach (var deactivatedObject in _deactivatedObjects)
+            {
+                deactivatedObject.SetActive(false);
+            }
+        }
+
+        void ReactivateSceneObjects()
+        {
+            foreach (var deactivatedObject in _deactivatedObjects)
+            {
+                if (deactivatedObject != null)
+                {
+                    deactivatedObject.SetActive(true);
+                }
+            }
+
+            _deactivatedObjects.Clear();
         }
 
         public override IEnumerable<GameObject> GetRootGameObjects()

@@ -17,6 +17,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Plugins/Zenject/Tests/IntegrationTests/SceneTests/TestSceneContextPreInstallMethod/TestSceneContextPreInstallMethod.unity
     guid: 00e9e850af5834407bd83c7c266e2c5f
+  - enabled: 1
+    path: Assets/Plugins/Zenject/Tests/IntegrationTests/SceneTests/TestAsyncStartup/TestAsyncStartup.unity
+    guid: 309204cf3fe0e4821904152ef104c78f
   m_configObjects:
     com.unity.addressableassets: {fileID: 11400000, guid: 7a01d0b135ed448f5bfab7cc190e5474,
       type: 2}

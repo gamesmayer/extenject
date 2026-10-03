@@ -62,6 +62,17 @@ namespace Zenject
                     yield return null;
                 }
 
+                // With async startup (ProjectContext.PreResolveRoutine / SceneContext.PreInstallRoutine)
+                // the scene's context finishes initializing after the scene has loaded
+                var loadedScene = SceneManager.GetSceneByName(sceneName);
+
+                while (loadedScene.GetRootGameObjects()
+                    .SelectMany(root => root.GetComponentsInChildren<SceneContext>(true))
+                    .Any(context => context.IsInitializing))
+                {
+                    yield return null;
+                }
+
                 SceneContext sceneContext = null;
 
                 if (ProjectContext.HasInstance)

@@ -17,7 +17,9 @@ namespace Zenject
         static bool _staticAutoRun = true;
 
         public bool Initialized { get; private set; }
-        
+
+        bool _isRunDeferred;
+
 #if UNITY_EDITOR
         // Required for disabling domain reload in enter the play mode feature. See: https://docs.unity3d.com/Manual/DomainReloading.html
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -38,6 +40,7 @@ namespace Zenject
             base.ResetInstanceFields();
             
             Initialized = false;
+            _isRunDeferred = false;
         }
 #endif
 
@@ -56,15 +59,44 @@ namespace Zenject
 
         public void Run()
         {
-            Assert.That(!Initialized,
+            Assert.That(!Initialized && !_isRunDeferred,
                 "The context already has been initialized!");
 
             RunInternal();
 
-            Initialized = true;
+            if (!_isRunDeferred)
+            {
+                Initialized = true;
+            }
         }
 
         protected abstract void RunInternal();
+
+        // True while a run continues asynchronously (see SceneContext async startup)
+        public bool IsInitializing
+        {
+            get { return _isRunDeferred; }
+        }
+
+        // Called from RunInternal when the run continues asynchronously.
+        // Initialized stays false until CompleteDeferredRun is called.
+        protected void DeferRun()
+        {
+            _isRunDeferred = true;
+        }
+
+        protected void CompleteDeferredRun()
+        {
+            Assert.That(_isRunDeferred);
+            _isRunDeferred = false;
+            Initialized = true;
+        }
+
+        // The asynchronous run failed: the context stays uninitialized
+        protected void FailDeferredRun()
+        {
+            _isRunDeferred = false;
+        }
 
         public static T CreateComponent<T>(GameObject gameObject) where T : RunnableContext
         {

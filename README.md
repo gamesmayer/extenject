@@ -68,6 +68,7 @@
   - [Zenject Order Of Operations](#zenject-order-of-operations)
   - [Injecting data across scenes](#injecting-data-across-scenes)
   - [SceneContext Static API](#scenecontext-static-api)
+    - [Async startup](#async-startup)
   - [Scene Parenting Using Contract Names](#scene-parenting-using-contract-names)
   - [Default Scene Parents](#default-scene-parents)
   - [ZenAutoInjecter](#zenautoinjecter)
@@ -1902,6 +1903,9 @@ Note also that by default, any game objects that are instantiated inside Project
 | `PostInstall` | `Action` | After all ProjectContext installers have finished |
 | `PreResolve` | `Action` | Before `ResolveRoots()` is called on the ProjectContext container |
 | `PostResolve` | `Action` | After the ProjectContext container has fully resolved |
+| `PreResolveRoutine` | `Func<IEnumerator>` | Asynchronous hook between `PreResolve` and `ResolveRoots()`. The container waits until the coroutine finishes before resolving. **Single-use**: cleared to `null` as soon as it is read. See [Async startup](#async-startup) |
+
+`ProjectContext.EnsureIsInitializedRoutine()` is the asynchronous counterpart of `ProjectContext.Instance`: it creates and initializes the ProjectContext, and waits for `PreResolveRoutine` if one is registered during install. `SceneContext` uses it. While it waits, `ProjectContext.Instance` throws a `ZenjectException`, because the container is installed but not resolved yet. If `PreResolveRoutine` is set and the ProjectContext is initialized synchronously (`ProjectContext.Instance` or `Initialize()`), initialization throws instead of skipping the routine. Validation runs skip the routine.
 
 **Example — registering a listener before the project context initializes:**
 
@@ -2374,6 +2378,7 @@ What follows below is a more detailed view of what happens when running a scene 
 
 - Unity Awake() phase begins
   - SceneContext.Awake() method is called. This should always be the first thing executed in your scene. It should work this way by default (see [here](#bad-execution-order) if you are noticing otherwise).
+    - If `ProjectContext.PreResolveRoutine` or `SceneContext.PreInstallRoutine` is registered, the steps below continue over the next frames while those coroutines run, and the scene's other objects stay inactive until the scene has been injected. See [Async startup](#async-startup).
   - Project Context is initialized. Note that this only happens once per play session. If a previous scene already initialized the ProjectContext, then this step is skipped
     - All injectable MonoBehaviour's on the ProjectContext prefab are passed to the container via [DiContainer.QueueForInject](#dicontainerqueueforinject)
     - ProjectContext iterates through all the Installers that have been added to its prefab via the Unity Inspector, runs injects on them, then calls InstallBindings() on each. Each Installer calls some number of Bind methods on the DiContainer.
@@ -2538,6 +2543,7 @@ The `ZenjectSceneLoader` class also allows for more complex scenarios, such as l
 | `ExtraBindingsLateInstallMethod` | `Action<DiContainer>` | Same as `ExtraBindingsInstallMethod`, but invoked after late installers. Consumed and reset to `null` after each scene load. |
 | `ParentContainers` | `IEnumerable<DiContainer>` | Overrides which container(s) act as parent for the next scene's `DiContainer`. Used by `ZenjectSceneLoader` for child/sibling scene relationships. Consumed and reset to `null` after each scene load. |
 | `PreInstallMethod` | `Action<SceneContext>` | Invoked synchronously in `RunInternal()`, after `ProjectContext` resolves and **before** `Install()`. **Single-use**: auto-cleared to `null` after it fires, so it only runs for the first loaded scene. Also cleared in `ResetInstanceFields()` for the editor domain-reload feature. |
+| `PreInstallRoutine` | `Func<SceneContext, IEnumerator>` | Asynchronous hook invoked after `PreInstallMethod` and **before** `Install()`. The scene waits until the coroutine finishes before installing. **Single-use**: cleared to `null` as soon as it is read. See [Async startup](#async-startup). |
 
 ### ExtraBindingsInstallMethod and ExtraBindingsLateInstallMethod
 
@@ -2567,7 +2573,8 @@ Its primary use is synchronous setup that must complete before the first scene's
 SceneContext.PreInstallMethod = (sceneContext) =>
 {
     // This runs synchronously before InstallBindings() on any scene installer.
-    // WaitForCompletion() is safe here because SceneContext initialization is synchronous.
+    // Blocking calls such as Addressables' WaitForCompletion() work here on most platforms, but not on WebGL.
+    // Use PreInstallRoutine (see Async startup) for loading that must also work on the Web.
     string sceneName = sceneContext.gameObject.scene.name;
     PreloadAssetsForScene(sceneName);
 };
@@ -2576,6 +2583,59 @@ SceneContext.PreInstallMethod = (sceneContext) =>
 **Single-use guarantee**: after `PreInstallMethod` fires, it is immediately set to `null`. Subsequent scene loads (via `SceneManager.LoadSceneAsync` or `ZenjectSceneLoader`) do not trigger it — those scenes are responsible for their own setup via their installers or the async preload path.
 
 **Editor support**: `PreInstallMethod` is also cleared in `ResetInstanceFields()`, which is called when the editor's "Enter Play Mode without domain reload" feature is enabled. This prevents stale delegates from a previous play session leaking into the next one.
+
+### Async startup
+
+Some startup work can't block the main thread. For example, Addressables doesn't support `WaitForCompletion()` on WebGL, so assets that installers need can't be loaded synchronously inside `SceneContext.Awake()`. Two single-use coroutine hooks let the first scene's startup wait for that work:
+
+- `ProjectContext.PreResolveRoutine` (`Func<IEnumerator>`) runs after the ProjectContext installers and `PreResolve`, before the ProjectContext container resolves.
+- `SceneContext.PreInstallRoutine` (`Func<SceneContext, IEnumerator>`) runs after `PreInstallMethod`, before the scene installs.
+
+When neither hook is registered, a `SceneContext` initializes synchronously in its `Awake()`, exactly as before. When one is registered, the startup becomes asynchronous:
+
+1. `SceneContext.Awake()` starts the ProjectContext initialization (`EnsureIsInitializedRoutine()`), and the ProjectContext installers run.
+2. If `PreResolveRoutine` is set, the scene's other root GameObjects and the SceneContext's children are deactivated, and the ProjectContext waits for the coroutine. Then it resolves.
+3. `PreInstallMethod` runs.
+4. If `PreInstallRoutine` is set, the scene objects are deactivated (if they aren't already) and the scene waits for the coroutine.
+5. The scene installs and resolves, so every MonoBehaviour in it is injected.
+6. The deactivated objects are activated again. Their `Awake()`, `OnEnable()` and `Start()` run after injection, as in a synchronous startup. Objects that were inactive in the scene stay inactive.
+7. `SceneContext.Initialized` becomes `true`.
+
+While the startup waits, `SceneContext.IsInitializing` is `true`, and `Initialized`/`HasResolved` are `false`. `ProjectContext.Instance` throws a `ZenjectException` while the ProjectContext waits for `PreResolveRoutine`.
+
+The coroutines can yield anything a Unity coroutine can, including nested `IEnumerator`s and Addressables handles. Keep the `SceneContext` on a root GameObject: only the other roots and the SceneContext's own children are deactivated.
+
+If a routine throws, the exception is logged, the scene stays inactive, and the SceneContext doesn't install (`Initialized` and `IsInitializing` stay `false`).
+
+**Example — preloading Addressables before the project and the first scene resolve:**
+
+```csharp
+public class AssetPreloadInstaller : MonoInstaller
+{
+    public override void InstallBindings()
+    {
+        Container.Bind<AssetPreloader>().AsSingle();
+
+        // Registered while the ProjectContext installs, so it runs before the ProjectContext resolves
+        ProjectContext.PreResolveRoutine = () => Container.Resolve<AssetPreloader>().Preload("project");
+        SceneContext.PreInstallRoutine = sceneContext => Container
+            .Resolve<AssetPreloader>()
+            .Preload(sceneContext.gameObject.scene.name);
+    }
+}
+
+public class AssetPreloader
+{
+    public IEnumerator Preload(string label)
+    {
+        AsyncOperationHandle<IList<Object>> handle = Addressables.LoadAssetsAsync<Object>(label, null);
+
+        yield return handle;
+    }
+}
+```
+
+`SceneTestFixture.LoadScene()` waits for scenes that start asynchronously, so scene tests can use these hooks.
 
 ## Scene Parenting Using Contract Names
 

@@ -97,6 +97,9 @@ New Features
 - Added automatic clearing of `SceneContext.PreInstallMethod` after invocation (single-use) and during editor reset paths to avoid stale delegates when domain reload is disabled
 - Fixed `MonoKernel.OnDestroy()` to only call `EventRegistrableManager.UnregisterEvents()` if initialization has occurred, preventing PlayMode teardown asserts when objects are destroyed before `Start()`/`Initialize()`
 - Added README sections for `ProjectContext` and `SceneContext` static APIs, including lifecycle timing and usage examples
+- Added async startup: the single-use coroutine hooks `ProjectContext.PreResolveRoutine` (`Func<IEnumerator>`, before the ProjectContext resolves) and `SceneContext.PreInstallRoutine` (`Func<SceneContext, IEnumerator>`, before the scene installs). While they run, the scene's other objects are inactive, so they are still injected before their `Awake()`. Without them, startup stays synchronous
+- Added `ProjectContext.EnsureIsInitializedRoutine()`, `RunnableContext.IsInitializing`, and `SceneTestFixture.LoadScene()` support for scenes that start asynchronously
+- Added `TestAsyncStartup` PlayMode tests and the README section "Async startup"
 
 ## Version 9.1.0 (October 13, 2019)
 
