@@ -2601,6 +2601,8 @@ When neither hook is registered, a `SceneContext` initializes synchronously in i
 6. The deactivated objects are activated again. Their `Awake()`, `OnEnable()` and `Start()` run after injection, as in a synchronous startup. Objects that were inactive in the scene stay inactive.
 7. `SceneContext.Initialized` becomes `true`.
 
+The ProjectContext is activated as soon as it resolves (step 2). So its kernel runs the project-level `Initialize()`, `RegisterEvents()` and `LateInitialize()` on the following frames, while the first scene's `PreInstallRoutine` may still be running. Project-level code can rely on what `PreResolveRoutine` loaded, but not on anything the scene's `PreInstallRoutine` loads, nor on the first scene being installed. Scene-level objects initialize only after the scene has installed, so always after `PreInstallRoutine` finishes.
+
 While the startup waits, `SceneContext.IsInitializing` is `true`, and `Initialized`/`HasResolved` are `false`. `ProjectContext.Instance` throws a `ZenjectException` while the ProjectContext waits for `PreResolveRoutine`.
 
 The coroutines can yield anything a Unity coroutine can, including nested `IEnumerator`s and Addressables handles. Keep the `SceneContext` on a root GameObject: only the other roots and the SceneContext's own children are deactivated.

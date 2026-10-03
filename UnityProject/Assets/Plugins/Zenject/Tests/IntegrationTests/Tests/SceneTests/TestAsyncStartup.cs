@@ -26,6 +26,7 @@ namespace Zenject.Tests
 
         public override void Teardown()
         {
+            ProjectContext.PreInstall -= BindProjectInitializable;
             ProjectContext.PostInstall -= OnProjectPostInstall;
             ProjectContext.PreResolve -= OnProjectPreResolve;
             ProjectContext.PostResolve -= OnProjectPostResolve;
@@ -74,6 +75,52 @@ namespace Zenject.Tests
                 "SceneInstaller.InstallBindings",
                 "SceneContext.PostResolve",
                 "Probe.Awake:ActiveRoot");
+        }
+
+        // The ProjectContext is resolved and activated before the first scene's PreInstallRoutine runs, so its kernel
+        // initializes project-level objects while that routine is still waiting
+        [UnityTest]
+        public IEnumerator TestProjectInitializablesRunWhileFirstScenePreInstallRoutineWaits()
+        {
+            ProjectContext.PreInstall += BindProjectInitializable;
+            ProjectContext.PreResolveRoutine = () => WaitFrames("PreResolveRoutine", 3);
+            SceneContext.PreInstallRoutine = context => WaitFrames("PreInstallRoutine", 5);
+
+            yield return LoadScene(SceneName);
+
+            AssertOrder(
+                "PreResolveRoutine.End",
+                "ProjectContext.PostResolve",
+                "PreInstallRoutine.Start",
+                "ProjectInitializable.Initialize",
+                "PreInstallRoutine.End",
+                "SceneInstaller.InstallBindings");
+        }
+
+        // Scene-level objects are only created once the scene installs, so they never initialize before
+        // PreInstallRoutine has finished
+        [UnityTest]
+        public IEnumerator TestSceneInitializablesRunAfterPreInstallRoutine()
+        {
+            ProjectContext.PreInstall += BindProjectInitializable;
+            SceneContext.PreInstallMethod = context =>
+            {
+                context.PreInstall += () => context.Container.BindInterfacesTo<SceneInitializableProbe>().AsSingle();
+            };
+            SceneContext.PreInstallRoutine = context => WaitFrames("PreInstallRoutine", 5);
+
+            yield return LoadScene(SceneName);
+
+            // The scene kernel initializes on the frame after the scene has been installed
+            yield return null;
+            yield return null;
+
+            AssertOrder(
+                "PreInstallRoutine.Start",
+                "ProjectInitializable.Initialize",
+                "PreInstallRoutine.End",
+                "SceneInstaller.InstallBindings",
+                "SceneInitializable.Initialize");
         }
 
         [UnityTest]
@@ -315,6 +362,11 @@ namespace Zenject.Tests
                 .Single();
         }
 
+        static void BindProjectInitializable()
+        {
+            ProjectContext.Instance.Container.BindInterfacesTo<ProjectInitializableProbe>().AsSingle();
+        }
+
         static void OnProjectPostInstall()
         {
             AsyncStartupLog.Add("ProjectContext.PostInstall");
@@ -328,6 +380,25 @@ namespace Zenject.Tests
         static void OnProjectPostResolve()
         {
             AsyncStartupLog.Add("ProjectContext.PostResolve");
+        }
+    }
+}
+
+namespace Zenject.Tests
+{
+    public class ProjectInitializableProbe : IInitializable
+    {
+        public void Initialize()
+        {
+            AsyncStartupLog.Add("ProjectInitializable.Initialize");
+        }
+    }
+
+    public class SceneInitializableProbe : IInitializable
+    {
+        public void Initialize()
+        {
+            AsyncStartupLog.Add("SceneInitializable.Initialize");
         }
     }
 }
