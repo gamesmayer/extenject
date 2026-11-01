@@ -1,5 +1,12 @@
 {
   "dependencies": {
+    "com.gamesmayer.lifecycle": {
+      "version": "git@github.com:gamesmayer/framework.git#lifecycle-upm-v0.1.0",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {},
+      "hash": "316e48a8ebf97ddac4b56c12e6601040290c30b4"
+    },
     "com.unity.2d.sprite": {
       "version": "1.0.0",
       "depth": 0,
