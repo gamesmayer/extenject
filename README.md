@@ -4,7 +4,6 @@
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/Mathijs-Bakker/Extenject?color=green)](https://github.com/Mathijs-Bakker/Extenject/releases)
 ![GitHub contributors](https://img.shields.io/github/contributors/Mathijs-Bakker/Extenject)
 ![GitHub last commit](https://img.shields.io/github/last-commit/Mathijs-Bakker/Extenject)
-[![CI](https://github.com/Mathijs-Bakker/Extenject/actions/workflows/main.yml/badge.svg)](https://github.com/Mathijs-Bakker/Extenject/actions/workflows/main.yml)
 ![GitHub](https://img.shields.io/github/license/Mathijs-Bakker/Extenject)
 
 ## Table Of Contents
