@@ -1,3 +1,4 @@
+using GamesMayer.Lifecycle;
 using UnityEngine;
 
 namespace Zenject.SpaceFighter

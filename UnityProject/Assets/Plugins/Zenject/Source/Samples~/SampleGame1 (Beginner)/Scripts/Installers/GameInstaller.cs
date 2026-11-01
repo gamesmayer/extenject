@@ -1,4 +1,5 @@
-﻿using System;
+using GamesMayer.Lifecycle;
+using System;
 using UnityEngine;
 
 namespace Zenject.Asteroids

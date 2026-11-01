@@ -1,3 +1,8 @@
+# 9.3.0
+
+- Repository distribution: consume the fork directly from GitHub release/9.3.0; GitHub Actions workflows have been removed.
+- Breaking: lifecycle contracts move to GamesMayer.Lifecycle. Install com.gamesmayer.lifecycle and update imports and asmdefs. Zenject retains injection, binding, priorities and Unity loop integration.
+
 # Changelog
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->

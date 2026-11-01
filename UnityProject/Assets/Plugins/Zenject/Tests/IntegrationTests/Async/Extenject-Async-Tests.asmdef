@@ -5,7 +5,8 @@
         "Zenject",
         "UnityEngine.TestRunner",
         "Extenject-Async",
-        "UniTask"
+        "UniTask",
+        "GamesMayer.Lifecycle"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -21,9 +22,9 @@
     ],
     "versionDefines": [
         {
-        "name": "com.cysharp.unitask",
-        "expression": "0.0.0",
-        "define": "UNITASK_PLUGIN"
+            "name": "com.cysharp.unitask",
+            "expression": "0.0.0",
+            "define": "UNITASK_PLUGIN"
         }
     ],
     "noEngineReferences": false

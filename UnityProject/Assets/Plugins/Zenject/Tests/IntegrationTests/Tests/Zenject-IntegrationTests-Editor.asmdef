@@ -6,7 +6,8 @@
         "Zenject",
         "Zenject-IntegrationTests",
         "UnityEngine.TestRunner",
-        "UnityEditor.TestRunner"
+        "UnityEditor.TestRunner",
+        "GamesMayer.Lifecycle"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

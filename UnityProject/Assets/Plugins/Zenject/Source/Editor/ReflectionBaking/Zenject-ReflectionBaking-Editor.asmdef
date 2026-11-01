@@ -2,7 +2,8 @@
     "name": "Zenject-ReflectionBaking-Editor",
     "references": [
         "Zenject",
-        "Zenject-Editor"
+        "Zenject-Editor",
+        "GamesMayer.Lifecycle"
     ],
     "includePlatforms": [
         "Editor"

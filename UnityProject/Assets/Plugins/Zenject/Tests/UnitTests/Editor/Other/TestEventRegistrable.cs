@@ -1,3 +1,4 @@
+using GamesMayer.Lifecycle;
 using NUnit.Framework;
 using Assert = ModestTree.Assert;
 using System;

@@ -76,9 +76,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="IGuiRenderable.cs" />
-    <Compile Include="IInitializable.cs" />
-    <Compile Include="IEventRegistrable.cs" />
-    <Compile Include="ILateInitializable.cs" />
     <Compile Include="InjectableInfo.cs" />
     <Compile Include="InjectAttribute.cs" />
     <Compile Include="InjectLocalAttribute.cs" />
@@ -86,8 +83,6 @@
     <Compile Include="InjectSources.cs" />
     <Compile Include="InjectTypeInfo.cs" />
     <Compile Include="IPoolable.cs" />
-    <Compile Include="ITickable.cs" />
-    <Compile Include="ILateDisposable.cs" />
     <Compile Include="InjectAttributeBase.cs" />
     <Compile Include="JetbrainsAnnotations.cs" />
     <Compile Include="NoReflectionBakingAttribute.cs" />
