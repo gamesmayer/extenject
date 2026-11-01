@@ -4,7 +4,6 @@
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/Mathijs-Bakker/Extenject?color=green)](https://github.com/Mathijs-Bakker/Extenject/releases)
 ![GitHub contributors](https://img.shields.io/github/contributors/Mathijs-Bakker/Extenject)
 ![GitHub last commit](https://img.shields.io/github/last-commit/Mathijs-Bakker/Extenject)
-[![CI](https://github.com/Mathijs-Bakker/Extenject/actions/workflows/main.yml/badge.svg)](https://github.com/Mathijs-Bakker/Extenject/actions/workflows/main.yml)
 ![GitHub](https://img.shields.io/github/license/Mathijs-Bakker/Extenject)
 
 ## Table Of Contents
@@ -32,6 +31,7 @@
     - [Construction Methods](#construction-methods)
   - [Installers](#installers)
   - [Using Non-MonoBehaviour Classes](#using-non-monobehaviour-classes)
+    - [Framework lifecycle contracts](#framework-lifecycle-contracts)
     - [IInitializable](#iinitializable)
     - [IEventRegistrable](#ieventregistrable)
     - [ILateInitializable](#ilateinitializable)
@@ -1088,6 +1088,22 @@ Another option in addition to `MonoInstaller` and `Installer<>` is to use `Scrip
 When calling installers from other installers it is common to want to pass parameters into it. See [here](#runtime-parameters-for-installers) for details on how that is done.
 
 ## Using Non-MonoBehaviour Classes
+
+### Framework lifecycle contracts
+
+The fork is consumed directly from its GitHub release branch. This repository no longer runs GitHub Actions; validate its Unity tests locally before updating a release branch.
+
+
+The GAMESMAYER fork consumes lifecycle interfaces from **GamesMayer.Lifecycle**. Install `com.gamesmayer.lifecycle` together with Zenject 9.3.0, and import the common namespace:
+
+```csharp
+using GamesMayer.Lifecycle;
+using Zenject;
+```
+
+`IDisposable` remains `System.IDisposable`. The other lifecycle interfaces are no longer declared in Zenject-usage.dll. The same contracts work in Unity, shared gameplay and servers; Zenject provides their Unity context, priorities and game-loop integration. See the [framework Lifecycle guide](https://docs.gamesmayer.com/engineering/framework/modules/lifecycle) for every stage, ownership and client/server examples.
+
+The Unity-specific callback timing below describes this adapter. The shared contracts themselves do not depend on Unity, and dynamically created graphs still need an explicit lifecycle owner. Framework Shared code uses constructor injection and owner-driven initialization rather than inject-method initialization.
 
 ### IInitializable
 

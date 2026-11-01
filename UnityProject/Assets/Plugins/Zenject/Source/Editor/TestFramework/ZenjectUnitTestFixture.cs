@@ -1,4 +1,5 @@
-﻿using NUnit.Framework;
+using GamesMayer.Lifecycle;
+using NUnit.Framework;
 
 namespace Zenject
 {

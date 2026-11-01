@@ -1,3 +1,4 @@
+using GamesMayer.Lifecycle;
 using System;
 
 namespace Zenject

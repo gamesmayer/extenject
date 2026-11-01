@@ -1,3 +1,4 @@
+using GamesMayer.Lifecycle;
 #if !NOT_UNITY3D
 
 using System;
