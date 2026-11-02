@@ -1,3 +1,13 @@
+# 9.4.0
+
+- Breaking: requires com.gamesmayer.lifecycle 0.3.0. `GamesMayer.Lifecycle.IDeinitializable` replaces `ILateDisposable` as a lifecycle stage: after UnregisterEvents, `DeinitializableManager` deinitializes the roots whose Initialize was reached, in reverse priority, before the container's `IDisposable` pass. `BindDeinitializableExecutionOrder` and `BindExecutionOrder` cover it.
+- Breaking: container late disposal is internal bookkeeping (`Zenject.Internal.IContainerLateDisposable`, used by `SignalBus` and `PoolCleanupChecker`). `IDecoratableMonoKernel` no longer has `LateDispose`; `Dispose` runs the whole teardown.
+- Breaking: `Kernel` (WithKernel sub-containers) implements every stage, so a sub-container's RegisterEvents, LateInitialize, UnregisterEvents and Deinitialize run in the parent's pass for that stage instead of inside its Initialize and Dispose.
+- `MonoKernel.Shutdown()` runs the teardown once; `OnDestroy` only falls back to it. `ProjectKernel.ShutdownScenes()` shuts every loaded scene down (GameObjectContexts first) while it is intact, and `OnApplicationQuit` always shuts the scenes and then the project down without destroying objects.
+- Teardown steps, `DisposableManager.Dispose` and `LateDispose` keep going after an error and report every error together; calling them again does nothing.
+- Fix an editor leak inherited from Extenject: every context stayed subscribed to `EditorApplication.playModeStateChanged` after being destroyed, keeping its whole scene in memory across scene changes. Contexts destroyed while playing now unsubscribe, and the handler removes itself when play mode exits.
+- Lifecycle conformance tests run the shared `GamesMayer.Lifecycle.Conformance` scenarios on `MonoKernel`.
+
 # 9.3.1
 
 - Remove the duplicate lifecycle-root checks: a stage called twice surfaces where the game calls it.

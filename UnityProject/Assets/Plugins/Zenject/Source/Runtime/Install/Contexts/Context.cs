@@ -96,9 +96,26 @@ namespace Zenject
 #endif
         }
         
+        protected virtual void OnDestroy()
+        {
+#if UNITY_EDITOR
+            // A context destroyed while still playing (a scene change) would otherwise stay referenced by this static
+            // editor event, and its whole scene with it. When play mode is exiting, the handler still runs and removes itself.
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                EditorApplication.playModeStateChanged -= OnEditorPlayModeChanged;
+            }
+#endif
+        }
+
 #if UNITY_EDITOR
         void OnEditorPlayModeChanged(PlayModeStateChange obj)
         {
+            if (obj != PlayModeStateChange.EnteredEditMode)
+                return;
+
+            EditorApplication.playModeStateChanged -= OnEditorPlayModeChanged;
+
             if (!EditorSettings.enterPlayModeOptionsEnabled)
                 return;
 
@@ -106,8 +123,7 @@ namespace Zenject
             if ((EditorSettings.enterPlayModeOptions & EnterPlayModeOptions.DisableSceneReload) == 0)
                 return;
 
-            if (obj == PlayModeStateChange.EnteredEditMode)
-                ResetInstanceFields();
+            ResetInstanceFields();
         }
 
         protected virtual void ResetInstanceFields()

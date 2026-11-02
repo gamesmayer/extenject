@@ -25,6 +25,9 @@ namespace Zenject
         [InjectLocal]
         EventRegistrableManager _eventRegistrableManager = null;
 
+        [InjectLocal]
+        DeinitializableManager _deinitializableManager = null;
+
         [InjectOptional] 
         private IDecoratableMonoKernel decoratableMonoKernel;
 
@@ -71,7 +74,7 @@ namespace Zenject
                 {
                     try
                     {
-                        OnDestroy();
+                        Shutdown();
                     }
                     catch (Exception stopError)
                     {
@@ -131,7 +134,9 @@ namespace Zenject
             }
         }
 
-        public virtual void OnDestroy()
+        // Runs UnregisterEvents -> Deinitialize -> container disposal once. Loaders call it before unloading a scene
+        // (ProjectKernel.ShutdownScenes) so Deinitialize still finds the scene intact; OnDestroy is only the fallback.
+        public void Shutdown()
         {
             if (_isDestroyed)
             {
@@ -147,35 +152,19 @@ namespace Zenject
                 return;
             }
 
-            try
+            if (decoratableMonoKernel != null)
             {
-                if (decoratableMonoKernel != null)
-                {
-                    decoratableMonoKernel.Dispose();
-                }
-                else
-                {
-                    try
-                    {
-                        _eventRegistrableManager?.UnregisterEvents();
-                    }
-                    finally
-                    {
-                        _disposablesManager.Dispose();
-                    }
-                }
+                decoratableMonoKernel.Dispose();
             }
-            finally
+            else
             {
-                if (decoratableMonoKernel != null)
-                {
-                    decoratableMonoKernel.LateDispose();
-                }
-                else
-                {
-                    _disposablesManager.LateDispose();
-                }
+                Internal.LifecycleTeardown.Run(_eventRegistrableManager, _deinitializableManager, _disposablesManager);
             }
+        }
+
+        public virtual void OnDestroy()
+        {
+            Shutdown();
         }
     }
 }

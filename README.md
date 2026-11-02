@@ -39,7 +39,7 @@
     - [IFixedTickable](#ifixedtickable)
     - [ILateTickable](#ilatetickable)
     - [IDisposable](#idisposable)
-    - [ILateDisposable](#ilatedisposable)
+    - [IDeinitializable](#ideinitializable)
     - [BindInterfacesTo and BindInterfacesAndSelfTo](#bindinterfacesto-and-bindinterfacesandselfto)
     - [Using the Unity Inspector To Configure Settings](#using-the-unity-inspector-to-configure-settings)
   - [Object Graph Validation](#object-graph-validation)
@@ -1359,35 +1359,34 @@ Container.BindInterfacesAndSelfTo<Logger>().AsSingle();
 
 This works because when the scene changes or your unity application is closed, the unity event `OnDestroy()` is called on all MonoBehaviours, including the SceneContext class, which then triggers `Dispose()` on all objects that are bound to `IDisposable`.
 
-### ILateDisposable
+### IDeinitializable
 
 ---
 
-`ILateDisposable` works just like `IDisposable`, except that the `LateDispose()` method is called after all `IDisposable.Dispose()` methods have been called. For most cases you're probably better off setting an explicit [execution order](#update--initialization-order) instead if the order is an issue, but `ILateDisposable` can be useful when you need a hard guarantee that certain cleanup runs last.
+`GamesMayer.Lifecycle.IDeinitializable` is the stage that undoes `Initialize`. After `UnregisterEvents()`, `Deinitialize()` runs on every root whose `Initialize` was reached, in the reverse order of [execution order](#update--initialization-order). The container's `IDisposable` pass runs after it and is reserved for resources the container owns.
 
 ```csharp
-public class Logger : ILateDisposable
+public class Spawner : IInitializable, IDeinitializable
 {
-    public void LateDispose()
+    public void Initialize()
     {
-        // Perform cleanup that must run after all IDisposable objects have been disposed
+        // Spawn pooled objects, start tweens...
+    }
+
+    public void Deinitialize()
+    {
+        // Despawn them and kill the tweens. The scene is still intact.
     }
 }
 ```
 
-Then, to hook it up in an installer:
-
 ```csharp
-Container.Bind<ILateDisposable>().To<Logger>().AsSingle();
+Container.BindInterfacesAndSelfTo<Spawner>().AsSingle();
 ```
 
-Or use the shortcut:
+The execution order is configurable via `BindDeinitializableExecutionOrder` or `BindExecutionOrder`. There is no `ILateDisposable` stage: nothing runs after `Deinitialize` except the container's own bookkeeping (`Zenject.Internal.IContainerLateDisposable`, used by `SignalBus` and `PoolCleanupChecker`).
 
-```csharp
-Container.BindInterfacesAndSelfTo<Logger>().AsSingle();
-```
-
-The execution order is configurable via `BindLateDisposableExecutionOrder`, as outlined [here](#update--initialization-order).
+Unity destroys root objects in an unspecified order, so relying on `OnDestroy` would let views disappear before `Deinitialize` runs. Call `ProjectKernel.ShutdownScenes()` before unloading or replacing scenes (`ZenjectSceneLoader`-style loaders and GAMESMAYER Core's `SceneSystem` do), and `ProjectKernel` shuts every scene and then the project down in `OnApplicationQuit`. `MonoKernel.OnDestroy` remains only a fallback.
 
 ### BindInterfacesTo and BindInterfacesAndSelfTo
 
@@ -2417,11 +2416,11 @@ What follows below is a more detailed view of what happens when running a scene 
   - All other MonoBehaviour's in your scene have their Update() method called
 - These same steps repeated for LateUpdate and ILateTickable
 - At the same time, These same steps are repeated for FixedUpdate according to the physics timestep
-- Unity scene is unloaded
-  - UnregisterEvents() is called on all objects mapped to `IEventRegistrable`, then Dispose() is called on all objects mapped to `IDisposable` within all the GameObjectContext's (see [here](#idisposable) for details)
-  - UnregisterEvents() is called on all objects mapped to `IEventRegistrable`, then Dispose() is called on all objects mapped to `IDisposable` within the SceneContext installers (see [here](#idisposable) for details)
-- App is exitted
-  - UnregisterEvents() is called on all objects mapped to `IEventRegistrable`, then Dispose() is called on all objects mapped to `IDisposable` within the ProjectContext installers (see [here](#idisposable) for details)
+- Before a Unity scene is unloaded (`ProjectKernel.ShutdownScenes()`), while it is still intact
+  - UnregisterEvents(), then Deinitialize(), then the container's Dispose() run within each GameObjectContext, children before parents (see [here](#ideinitializable) for details)
+  - The same steps run within the SceneContext installers
+- App is exited (`ProjectKernel.OnApplicationQuit`)
+  - Every loaded scene shuts down as above, in the reverse order they were loaded in, then the ProjectContext does
 
 ## Injecting data across scenes
 

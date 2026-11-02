@@ -23,7 +23,7 @@ namespace Zenject.Tests.Other
 
             var container = new DiContainer();
 
-            container.Bind(typeof(TickableManager), typeof(InitializableManager), typeof(DisposableManager), typeof(EventRegistrableManager), typeof(LateInitializableManager))
+            container.Bind(typeof(TickableManager), typeof(InitializableManager), typeof(DisposableManager), typeof(EventRegistrableManager), typeof(LateInitializableManager), typeof(DeinitializableManager))
                 .ToSelf().AsSingle().CopyIntoAllSubContainers();
 
             // This is how you add ITickables / etc. within sub containers
@@ -35,6 +35,7 @@ namespace Zenject.Tests.Other
             var eventRegistrableManager = container.Resolve<EventRegistrableManager>();
             var lateInitManager = container.Resolve<LateInitializableManager>();
             var disposeManager = container.Resolve<DisposableManager>();
+            var deinitManager = container.Resolve<DeinitializableManager>();
 
             Assert.That(!InitTest.WasRun);
             Assert.That(!RegisterEventsTest.WasRegistered);
@@ -48,6 +49,7 @@ namespace Zenject.Tests.Other
             lateInitManager.LateInitialize();
             tickManager.Update();
             eventRegistrableManager.UnregisterEvents();
+            deinitManager.Deinitialize();
             disposeManager.Dispose();
 
             Assert.That(InitTest.WasRun);

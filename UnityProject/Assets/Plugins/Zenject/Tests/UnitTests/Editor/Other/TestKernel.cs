@@ -69,7 +69,7 @@ namespace Zenject.Tests.Other
             var foo = Container.Resolve<Foo>();
             Assert.IsEqual(foo.RegisterCount, 0);
 
-            Container.Resolve<Kernel>().Initialize();
+            Start(Container.Resolve<Kernel>());
             Assert.IsEqual(foo.RegisterCount, 1);
         }
 
@@ -84,14 +84,14 @@ namespace Zenject.Tests.Other
             Container.ResolveRoots();
 
             var kernel = Container.Resolve<Kernel>();
-            kernel.Initialize();
+            Start(kernel);
 
             GlobalCallCount = 0;
 
             var foo = Container.Resolve<Foo>();
             Assert.IsEqual(foo.UnregisterCount, 0);
 
-            kernel.Dispose();
+            Stop(kernel);
             Assert.IsEqual(foo.UnregisterCount, 1);
         }
 
@@ -107,7 +107,7 @@ namespace Zenject.Tests.Other
             ZenjectManagersInstaller.Install(Container);
             Container.ResolveRoots();
 
-            Container.Resolve<Kernel>().Initialize();
+            Start(Container.Resolve<Kernel>());
 
             var bar = Container.Resolve<Bar>();
             var foo = Container.Resolve<Foo>();
@@ -131,17 +131,33 @@ namespace Zenject.Tests.Other
             Container.ResolveRoots();
 
             var kernel = Container.Resolve<Kernel>();
-            kernel.Initialize();
+            Start(kernel);
 
             GlobalCallCount = 0;
-            kernel.Dispose();
+            Stop(kernel);
 
             var foo = Container.Resolve<Foo>();
             var baz = Container.Resolve<Baz>();
 
-            // UnregisterEvents → Dispose
+            // UnregisterEvents → container Dispose
             Assert.IsEqual(foo.UnregisterCount, 1);
             Assert.IsEqual(baz.DisposeCount, 2);
+        }
+
+        // A parent drives a sub-container's Kernel one stage at a time, inside its own passes.
+        static void Start(Kernel kernel)
+        {
+            kernel.Initialize();
+            kernel.RegisterEvents();
+            kernel.LateInitialize();
+        }
+
+        static void Stop(Kernel kernel)
+        {
+            kernel.UnregisterEvents();
+            kernel.Deinitialize();
+            kernel.Dispose();
+            kernel.LateDispose();
         }
     }
 }

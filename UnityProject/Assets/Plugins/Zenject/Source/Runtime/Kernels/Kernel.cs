@@ -1,11 +1,14 @@
 using GamesMayer.Lifecycle;
 using System;
 using System.Diagnostics;
+using Zenject.Internal;
 
 namespace Zenject
 {
+    // Drives a sub-container (WithKernel) from its parent. Each stage runs inside the parent's pass for that
+    // same stage, so the sub-container's roots respect the parent's barriers and priorities.
     [DebuggerStepThrough]
-    public class Kernel : IInitializable, IDisposable, ITickable, ILateTickable, IFixedTickable, ILateDisposable
+    public class Kernel : IInitializable, IEventRegistrable, ILateInitializable, ITickable, ILateTickable, IFixedTickable, IDeinitializable, IDisposable, IContainerLateDisposable
     {
         [InjectLocal]
         TickableManager _tickableManager = null;
@@ -22,16 +25,36 @@ namespace Zenject
         [InjectLocal]
         EventRegistrableManager _eventRegistrableManager = null;
 
+        [InjectLocal]
+        DeinitializableManager _deinitializableManager = null;
+
         public virtual void Initialize()
         {
             _initializableManager.Initialize();
+        }
+
+        public virtual void RegisterEvents()
+        {
             _eventRegistrableManager.RegisterEvents();
+        }
+
+        public virtual void LateInitialize()
+        {
             _lateInitializableManager.LateInitialize();
+        }
+
+        public virtual void UnregisterEvents()
+        {
+            _eventRegistrableManager.UnregisterEvents();
+        }
+
+        public virtual void Deinitialize()
+        {
+            _deinitializableManager.Deinitialize();
         }
 
         public virtual void Dispose()
         {
-            _eventRegistrableManager.UnregisterEvents();
             _disposablesManager.Dispose();
         }
 

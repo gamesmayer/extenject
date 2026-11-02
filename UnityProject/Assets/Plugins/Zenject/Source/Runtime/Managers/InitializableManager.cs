@@ -15,6 +15,9 @@ namespace Zenject
 
         protected bool _hasInitialized;
 
+        readonly List<IInitializable> _attempted = new List<IInitializable>();
+        bool _hasCompleted;
+
         [Inject]
         public InitializableManager(
             [Inject(Optional = true, Source = InjectSources.Local)]
@@ -58,6 +61,9 @@ namespace Zenject
 
             foreach (var initializable in _initializables)
             {
+                // Include the current root so a partial initialization can be undone if it throws.
+                _attempted.Add(initializable.Initializable);
+
                 try
                 {
 #if ZEN_INTERNAL_PROFILING
@@ -76,6 +82,14 @@ namespace Zenject
                         e, "Error occurred while initializing IInitializable with type '{0}'", initializable.Initializable.GetType());
                 }
             }
+
+            _hasCompleted = true;
+        }
+
+        // True when every Initialize ran, or when this root's own Initialize was attempted before a failure.
+        public bool HasReached(object root)
+        {
+            return _hasCompleted || _attempted.Any(x => ReferenceEquals(x, root));
         }
 
         class InitializableInfo

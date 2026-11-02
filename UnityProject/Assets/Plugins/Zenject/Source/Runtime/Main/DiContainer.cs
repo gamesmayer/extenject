@@ -3437,8 +3437,8 @@ namespace Zenject
 
         public void BindExecutionOrder(Type type, int order)
         {
-            Assert.That(type.DerivesFrom<ITickable>() || type.DerivesFrom<IInitializable>() || type.DerivesFrom<ILateInitializable>() || type.DerivesFrom<IEventRegistrable>() || type.DerivesFrom<IDisposable>() || type.DerivesFrom<ILateDisposable>() || type.DerivesFrom<IFixedTickable>() || type.DerivesFrom<ILateTickable>() || type.DerivesFrom<IPoolable>(),
-                "Expected type '{0}' to derive from one or more of the following interfaces: ITickable, IInitializable, ILateInitializable, IEventRegistrable, ILateTickable, IFixedTickable, IDisposable, ILateDisposable", type);
+            Assert.That(type.DerivesFrom<ITickable>() || type.DerivesFrom<IInitializable>() || type.DerivesFrom<ILateInitializable>() || type.DerivesFrom<IEventRegistrable>() || type.DerivesFrom<IDeinitializable>() || type.DerivesFrom<IDisposable>() || type.DerivesFrom<IContainerLateDisposable>() || type.DerivesFrom<IFixedTickable>() || type.DerivesFrom<ILateTickable>() || type.DerivesFrom<IPoolable>(),
+                "Expected type '{0}' to derive from one or more of the following interfaces: ITickable, IInitializable, ILateInitializable, IEventRegistrable, IDeinitializable, ILateTickable, IFixedTickable, IDisposable", type);
 
             if (type.DerivesFrom<ITickable>())
             {
@@ -3460,12 +3460,17 @@ namespace Zenject
                 BindEventRegistrableExecutionOrder(type, order);
             }
 
+            if (type.DerivesFrom<IDeinitializable>())
+            {
+                BindDeinitializableExecutionOrder(type, order);
+            }
+
             if (type.DerivesFrom<IDisposable>())
             {
                 BindDisposableExecutionOrder(type, order);
             }
 
-            if (type.DerivesFrom<ILateDisposable>())
+            if (type.DerivesFrom<IContainerLateDisposable>())
             {
                 BindLateDisposableExecutionOrder(type, order);
             }
@@ -3546,6 +3551,21 @@ namespace Zenject
                 ValuePair.New(type, order)).WhenInjectedInto<EventRegistrableManager>();
         }
 
+        public CopyNonLazyBinder BindDeinitializableExecutionOrder<T>(int order)
+            where T : IDeinitializable
+        {
+            return BindDeinitializableExecutionOrder(typeof(T), order);
+        }
+
+        public CopyNonLazyBinder BindDeinitializableExecutionOrder(Type type, int order)
+        {
+            Assert.That(type.DerivesFrom<IDeinitializable>(),
+                "Expected type '{0}' to derive from IDeinitializable", type);
+
+            return BindInstance(
+                ValuePair.New(type, order)).WhenInjectedInto<DeinitializableManager>();
+        }
+
         public CopyNonLazyBinder BindDisposableExecutionOrder<T>(int order)
             where T : IDisposable
         {
@@ -3553,7 +3573,7 @@ namespace Zenject
         }
 
         public CopyNonLazyBinder BindLateDisposableExecutionOrder<T>(int order)
-            where T : ILateDisposable
+            where T : IContainerLateDisposable
         {
             return BindLateDisposableExecutionOrder(typeof(T), order);
         }
@@ -3569,8 +3589,8 @@ namespace Zenject
 
         public CopyNonLazyBinder BindLateDisposableExecutionOrder(Type type, int order)
         {
-            Assert.That(type.DerivesFrom<ILateDisposable>(),
-            "Expected type '{0}' to derive from ILateDisposable", type);
+            Assert.That(type.DerivesFrom<IContainerLateDisposable>(),
+            "Expected type '{0}' to derive from IContainerLateDisposable", type);
 
             return BindInstance(
                 ValuePair.New(type, order)).WithId("Late").WhenInjectedInto<DisposableManager>();

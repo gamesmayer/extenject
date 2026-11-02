@@ -7,9 +7,11 @@ using ModestTree;
 using UniRx;
 #endif
 
+using Zenject.Internal;
+
 namespace Zenject
 {
-    public class SignalBus : ILateDisposable
+    public class SignalBus : IContainerLateDisposable
     {
         readonly SignalSubscription.Pool _subscriptionPool;
         readonly Dictionary<BindingId, SignalDeclaration> _localDeclarationMap = new Dictionary<BindingId, SignalDeclaration>();

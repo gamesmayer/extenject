@@ -18,7 +18,7 @@ namespace Zenject
 
         public override void InstallBindings()
         {
-            Container.Bind(typeof(TickableManager), typeof(InitializableManager), typeof(DisposableManager), typeof(LateInitializableManager), typeof(EventRegistrableManager))
+            Container.Bind(typeof(TickableManager), typeof(InitializableManager), typeof(DisposableManager), typeof(LateInitializableManager), typeof(EventRegistrableManager), typeof(DeinitializableManager))
                 .ToSelf().AsSingle().CopyIntoAllSubContainers();
         }
     }

@@ -246,21 +246,21 @@ namespace Zenject.Tests.Other
             Assert.IsEqual(failed.Unregistrations, 1);
         }
 
-        public class KernelProbe : IInitializable, IEventRegistrable, ITickable, IDisposable, ILateDisposable
+        public class KernelProbe : IInitializable, IEventRegistrable, ITickable, IDeinitializable, IDisposable
         {
             public bool FailInitialize;
             public bool FailRegister;
             public int Ticks;
             public int Unregistrations;
             public int Disposals;
-            public int LateDisposals;
+            public int Deinitializations;
 
             public void Initialize() { if (FailInitialize) throw new InvalidOperationException("initialize"); }
             public void RegisterEvents() { if (FailRegister) throw new InvalidOperationException("register"); }
             public void UnregisterEvents() { Unregistrations++; }
             public void Tick() { Ticks++; }
             public void Dispose() { Disposals++; }
-            public void LateDispose() { LateDisposals++; }
+            public void Deinitialize() { Deinitializations++; }
         }
 
         public class TestKernel : MonoKernel { }
@@ -284,7 +284,7 @@ namespace Zenject.Tests.Other
                 Assert.IsEqual(probe.Ticks, 0);
                 Assert.IsEqual(probe.Unregistrations, failInitialize ? 0 : 1);
                 Assert.IsEqual(probe.Disposals, 1);
-                Assert.IsEqual(probe.LateDisposals, 1);
+                Assert.IsEqual(probe.Deinitializations, 1);
             }
             finally
             {

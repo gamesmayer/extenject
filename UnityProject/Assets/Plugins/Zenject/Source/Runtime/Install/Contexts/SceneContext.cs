@@ -167,8 +167,9 @@ namespace Zenject
             }
         }
 
-        protected virtual void OnDestroy()
+        protected override void OnDestroy()
         {
+            base.OnDestroy();
             DisposeRunSteps();
 
             // The container doesn't exist yet if the scene is destroyed during an async startup

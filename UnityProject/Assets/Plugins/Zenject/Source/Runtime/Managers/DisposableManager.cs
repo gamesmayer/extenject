@@ -1,12 +1,13 @@
-using GamesMayer.Lifecycle;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using ModestTree;
 using ModestTree.Util;
+using Zenject.Internal;
 
 namespace Zenject
 {
+    // The container's System.IDisposable pass, after every IDeinitializable. Lifecycle state belongs in Deinitialize.
     public class DisposableManager : IDisposable
     {
         readonly List<DisposableInfo> _disposables = new List<DisposableInfo>();
@@ -21,7 +22,7 @@ namespace Zenject
             [Inject(Optional = true, Source = InjectSources.Local)]
             List<ValuePair<Type, int>> priorities,
             [Inject(Optional = true, Source = InjectSources.Local)]
-            List<ILateDisposable> lateDisposables,
+            List<IContainerLateDisposable> lateDisposables,
             [Inject(Id = "Late", Optional = true, Source = InjectSources.Local)]
             List<ValuePair<Type, int>> latePriorities)
         {
@@ -55,12 +56,12 @@ namespace Zenject
                 new DisposableInfo(disposable, priority));
         }
 
-        public void AddLate(ILateDisposable disposable)
+        public void AddLate(IContainerLateDisposable disposable)
         {
             AddLate(disposable, 0);
         }
 
-        public void AddLate(ILateDisposable disposable, int priority)
+        public void AddLate(IContainerLateDisposable disposable, int priority)
         {
             _lateDisposables.Add(
                 new LateDisposableInfo(disposable, priority));
@@ -74,13 +75,17 @@ namespace Zenject
 
         public void LateDispose()
         {
-            Assert.That(!_lateDisposed, "Tried to late dispose DisposableManager twice!");
+            if (_lateDisposed)
+            {
+                return;
+            }
+
             _lateDisposed = true;
 
-            // Dispose in the reverse order that they are initialized in
-            var disposablesOrdered = _lateDisposables.OrderBy(x => x.Priority).Reverse().ToList();
+            var errors = new List<Exception>();
 
-            foreach (var disposable in disposablesOrdered)
+            // Dispose in the reverse order that they are initialized in
+            foreach (var disposable in _lateDisposables.OrderBy(x => x.Priority).Reverse().ToList())
             {
                 try
                 {
@@ -88,21 +93,27 @@ namespace Zenject
                 }
                 catch (Exception e)
                 {
-                    throw Assert.CreateException(
-                        e, "Error occurred while late disposing ILateDisposable with type '{0}'", disposable.LateDisposable.GetType());
+                    errors.Add(Assert.CreateException(
+                        e, "Error occurred while late disposing '{0}'", disposable.LateDisposable.GetType()));
                 }
             }
+
+            LifecycleTeardown.ThrowIfAny(errors);
         }
 
         public void Dispose()
         {
-            Assert.That(!_disposed, "Tried to dispose DisposableManager twice!");
+            if (_disposed)
+            {
+                return;
+            }
+
             _disposed = true;
 
-            // Dispose in the reverse order that they are initialized in
-            var disposablesOrdered = _disposables.OrderBy(x => x.Priority).Reverse().ToList();
+            var errors = new List<Exception>();
 
-            foreach (var disposable in disposablesOrdered)
+            // Dispose in the reverse order that they are initialized in
+            foreach (var disposable in _disposables.OrderBy(x => x.Priority).Reverse().ToList())
             {
                 try
                 {
@@ -110,10 +121,12 @@ namespace Zenject
                 }
                 catch (Exception e)
                 {
-                    throw Assert.CreateException(
-                        e, "Error occurred while disposing IDisposable with type '{0}'", disposable.Disposable.GetType());
+                    errors.Add(Assert.CreateException(
+                        e, "Error occurred while disposing IDisposable with type '{0}'", disposable.Disposable.GetType()));
                 }
             }
+
+            LifecycleTeardown.ThrowIfAny(errors);
         }
 
         struct DisposableInfo
@@ -130,10 +143,10 @@ namespace Zenject
 
         class LateDisposableInfo
         {
-            public ILateDisposable LateDisposable;
+            public IContainerLateDisposable LateDisposable;
             public int Priority;
 
-            public LateDisposableInfo(ILateDisposable lateDisposable, int priority)
+            public LateDisposableInfo(IContainerLateDisposable lateDisposable, int priority)
             {
                 LateDisposable = lateDisposable;
                 Priority = priority;

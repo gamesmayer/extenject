@@ -7,8 +7,8 @@
         void Update();
         void FixedUpdate();
         void LateUpdate();
+        // UnregisterEvents -> Deinitialize -> container Dispose and LateDispose
         void Dispose();
-        void LateDispose();
     }
 
     public class DecoratableMonoKernel : IDecoratableMonoKernel
@@ -27,6 +27,9 @@
 
         [InjectLocal]
         public EventRegistrableManager EventRegistrableManager { get; protected set; } = null;
+
+        [InjectLocal]
+        public DeinitializableManager DeinitializableManager { get; protected set; } = null;
         
         
         public virtual bool ShouldInitializeOnStart() => true;
@@ -55,13 +58,7 @@
 
         public void Dispose()
         {
-            EventRegistrableManager.UnregisterEvents();
-            DisposablesManager.Dispose();
-        }
-
-        public void LateDispose()
-        {
-            DisposablesManager.LateDispose();
+            Internal.LifecycleTeardown.Run(EventRegistrableManager, DeinitializableManager, DisposablesManager);
         }
     }
 
@@ -76,7 +73,6 @@
         public virtual void FixedUpdate() => DecoratedMonoKernel.FixedUpdate();
         public virtual void LateUpdate() => DecoratedMonoKernel.LateUpdate();
         public virtual void Dispose() => DecoratedMonoKernel.Dispose();
-        public virtual void LateDispose() => DecoratedMonoKernel.LateDispose();
     }
     
 }
