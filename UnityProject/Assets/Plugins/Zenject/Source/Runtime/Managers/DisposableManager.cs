@@ -80,13 +80,6 @@ namespace Zenject
             // Dispose in the reverse order that they are initialized in
             var disposablesOrdered = _lateDisposables.OrderBy(x => x.Priority).Reverse().ToList();
 
-#if UNITY_EDITOR
-            foreach (var disposable in disposablesOrdered.Select(x => x.LateDisposable).GetDuplicates())
-            {
-                Assert.That(false, "Found duplicate ILateDisposable with type '{0}'".Fmt(disposable.GetType()));
-            }
-#endif
-
             foreach (var disposable in disposablesOrdered)
             {
                 try
@@ -108,13 +101,6 @@ namespace Zenject
 
             // Dispose in the reverse order that they are initialized in
             var disposablesOrdered = _disposables.OrderBy(x => x.Priority).Reverse().ToList();
-
-#if UNITY_EDITOR
-            foreach (var disposable in disposablesOrdered.Select(x => x.Disposable).GetDuplicates())
-            {
-                Assert.That(false, "Found duplicate IDisposable with type '{0}'".Fmt(disposable.GetType()));
-            }
-#endif
 
             foreach (var disposable in disposablesOrdered)
             {

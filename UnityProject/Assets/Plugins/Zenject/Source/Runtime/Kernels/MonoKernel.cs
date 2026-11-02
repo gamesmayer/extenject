@@ -2,6 +2,7 @@
 
 #pragma warning disable 649
 
+using System;
 using ModestTree;
 using UnityEngine;
 
@@ -28,6 +29,7 @@ namespace Zenject
         private IDecoratableMonoKernel decoratableMonoKernel;
 
         bool _hasInitialized;
+        bool _isRunning;
         bool _isDestroyed;
 
         protected bool IsDestroyed
@@ -50,15 +52,33 @@ namespace Zenject
             {
                 _hasInitialized = true;
 
-                if (decoratableMonoKernel != null)
+                try
                 {
-                    decoratableMonoKernel.Initialize();
+                    if (decoratableMonoKernel != null)
+                    {
+                        decoratableMonoKernel.Initialize();
+                    }
+                    else
+                    {
+                        _initializableManager.Initialize();
+                        _eventRegistrableManager.RegisterEvents();
+                        _lateInitializableManager.LateInitialize();
+                    }
+
+                    _isRunning = true;
                 }
-                else
+                catch (Exception startError)
                 {
-                    _initializableManager.Initialize();
-                    _eventRegistrableManager.RegisterEvents();
-                    _lateInitializableManager.LateInitialize();
+                    try
+                    {
+                        OnDestroy();
+                    }
+                    catch (Exception stopError)
+                    {
+                        throw new AggregateException(startError, stopError);
+                    }
+
+                    throw;
                 }
             }
         }
@@ -66,7 +86,7 @@ namespace Zenject
         public virtual void Update()
         {
             // Don't spam the log every frame if initialization fails and leaves it as null
-            if (_tickableManager != null)
+            if (_isRunning && !_isDestroyed && _tickableManager != null)
             {
                 if (decoratableMonoKernel != null)
                 {
@@ -82,7 +102,7 @@ namespace Zenject
         public virtual void FixedUpdate()
         {
             // Don't spam the log every frame if initialization fails and leaves it as null
-            if (_tickableManager != null)
+            if (_isRunning && !_isDestroyed && _tickableManager != null)
             {
                 if (decoratableMonoKernel != null)
                 {
@@ -98,7 +118,7 @@ namespace Zenject
         public virtual void LateUpdate()
         {
             // Don't spam the log every frame if initialization fails and leaves it as null
-            if (_tickableManager != null)
+            if (_isRunning && !_isDestroyed && _tickableManager != null)
             {
                 if (decoratableMonoKernel != null)
                 {
@@ -113,25 +133,46 @@ namespace Zenject
 
         public virtual void OnDestroy()
         {
-            // _disposablesManager can be null if we get destroyed before the Start event
-            if (_disposablesManager != null)
+            if (_isDestroyed)
             {
-                Assert.That(!_isDestroyed);
-                _isDestroyed = true;
+                return;
+            }
 
+            _isDestroyed = true;
+            _isRunning = false;
+
+            // Injection may not have completed when Unity destroys the kernel.
+            if (_disposablesManager == null)
+            {
+                return;
+            }
+
+            try
+            {
                 if (decoratableMonoKernel != null)
                 {
                     decoratableMonoKernel.Dispose();
+                }
+                else
+                {
+                    try
+                    {
+                        _eventRegistrableManager?.UnregisterEvents();
+                    }
+                    finally
+                    {
+                        _disposablesManager.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (decoratableMonoKernel != null)
+                {
                     decoratableMonoKernel.LateDispose();
                 }
                 else
                 {
-                    if (_hasInitialized)
-                    {
-                        _eventRegistrableManager.UnregisterEvents();
-                    }
-
-                    _disposablesManager.Dispose();
                     _disposablesManager.LateDispose();
                 }
             }

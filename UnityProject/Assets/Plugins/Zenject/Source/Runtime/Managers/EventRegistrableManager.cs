@@ -14,6 +14,8 @@ namespace Zenject
     {
         List<EventRegistrableInfo> _eventRegistrables;
 
+        readonly List<EventRegistrableInfo> _registered = new List<EventRegistrableInfo>();
+
         bool _hasRegistered;
         bool _hasUnregistered;
 
@@ -57,15 +59,10 @@ namespace Zenject
 
             _eventRegistrables = _eventRegistrables.OrderBy(x => x.Priority).ToList();
 
-#if UNITY_EDITOR
-            foreach (var eventRegistrable in _eventRegistrables.Select(x => x.EventRegistrable).GetDuplicates())
-            {
-                Assert.That(false, "Found duplicate IEventRegistrable with type '{0}'".Fmt(eventRegistrable.GetType()));
-            }
-#endif
-
             foreach (var eventRegistrable in _eventRegistrables)
             {
+                // Include the attempted root: registration may fail after subscribing some of its children.
+                _registered.Add(eventRegistrable);
                 try
                 {
 #if ZEN_INTERNAL_PROFILING
@@ -88,12 +85,15 @@ namespace Zenject
 
         public void UnregisterEvents()
         {
-            Assert.That(_hasRegistered, "Tried to call UnregisterEvents before RegisterEvents was called!");
-            Assert.That(!_hasUnregistered, "Tried to call UnregisterEvents twice!");
+            if (!_hasRegistered || _hasUnregistered)
+            {
+                return;
+            }
             _hasUnregistered = true;
 
             // Unregister in the reverse order that they were registered
-            var eventRegistrablesOrdered = _eventRegistrables.OrderBy(x => x.Priority).Reverse().ToList();
+            var eventRegistrablesOrdered = _registered.AsEnumerable().Reverse().ToList();
+            var errors = new List<Exception>();
 
             foreach (var eventRegistrable in eventRegistrablesOrdered)
             {
@@ -111,9 +111,13 @@ namespace Zenject
                 }
                 catch (Exception e)
                 {
-                    throw Assert.CreateException(
-                        e, "Error occurred while unregistering events on IEventRegistrable with type '{0}'", eventRegistrable.EventRegistrable.GetType());
+                    errors.Add(Assert.CreateException(
+                        e, "Error occurred while unregistering events on IEventRegistrable with type '{0}'", eventRegistrable.EventRegistrable.GetType()));
                 }
+            }
+            if (errors.Count > 0)
+            {
+                throw new AggregateException(errors);
             }
         }
 

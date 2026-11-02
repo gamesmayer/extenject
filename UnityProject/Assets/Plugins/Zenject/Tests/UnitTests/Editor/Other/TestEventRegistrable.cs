@@ -2,6 +2,8 @@ using GamesMayer.Lifecycle;
 using NUnit.Framework;
 using Assert = ModestTree.Assert;
 using System;
+using System.Collections.Generic;
+using ModestTree.Util;
 
 namespace Zenject.Tests.Other
 {
@@ -195,5 +197,100 @@ namespace Zenject.Tests.Other
             Assert.IsEqual(foo.UnregisterCount, 1);
             Assert.IsEqual(qux.UnregisterCount, 2);
         }
+        public class PartialRoot : IEventRegistrable
+        {
+            public bool FailRegistration;
+            public bool FailUnregistration;
+            public int Registrations;
+            public int Unregistrations;
+
+            public void RegisterEvents()
+            {
+                Registrations++;
+                if (FailRegistration) throw new InvalidOperationException("register");
+            }
+
+            public void UnregisterEvents()
+            {
+                Unregistrations++;
+                if (FailUnregistration) throw new InvalidOperationException("unregister");
+            }
+        }
+
+        [Test]
+        public void PartialStartupCleansOnlyAttemptedRootsAndShutdownIsIdempotent()
+        {
+            var first = new PartialRoot();
+            var failed = new PartialRoot { FailRegistration = true };
+            var untouched = new PartialRoot();
+            var manager = new EventRegistrableManager(
+                new List<IEventRegistrable> { first, failed, untouched }, new List<ValuePair<Type, int>>());
+            Assert.Throws(() => manager.RegisterEvents());
+            manager.UnregisterEvents();
+            manager.UnregisterEvents();
+            Assert.IsEqual(first.Unregistrations, 1);
+            Assert.IsEqual(failed.Unregistrations, 1);
+            Assert.IsEqual(untouched.Unregistrations, 0);
+        }
+
+        [Test]
+        public void ShutdownContinuesWhenOneRootFails()
+        {
+            var first = new PartialRoot();
+            var failed = new PartialRoot { FailUnregistration = true };
+            var manager = new EventRegistrableManager(
+                new List<IEventRegistrable> { first, failed }, new List<ValuePair<Type, int>>());
+            manager.RegisterEvents();
+            NUnit.Framework.Assert.Throws<AggregateException>(() => manager.UnregisterEvents());
+            Assert.IsEqual(first.Unregistrations, 1);
+            Assert.IsEqual(failed.Unregistrations, 1);
+        }
+
+        public class KernelProbe : IInitializable, IEventRegistrable, ITickable, IDisposable, ILateDisposable
+        {
+            public bool FailInitialize;
+            public bool FailRegister;
+            public int Ticks;
+            public int Unregistrations;
+            public int Disposals;
+            public int LateDisposals;
+
+            public void Initialize() { if (FailInitialize) throw new InvalidOperationException("initialize"); }
+            public void RegisterEvents() { if (FailRegister) throw new InvalidOperationException("register"); }
+            public void UnregisterEvents() { Unregistrations++; }
+            public void Tick() { Ticks++; }
+            public void Dispose() { Disposals++; }
+            public void LateDispose() { LateDisposals++; }
+        }
+
+        public class TestKernel : MonoKernel { }
+
+        [TestCase(true)]
+        [TestCase(false)]
+        public void FailedKernelStartupStopsTicksAndCleansExactlyOnce(bool failInitialize)
+        {
+            var probe = new KernelProbe { FailInitialize = failInitialize, FailRegister = !failInitialize };
+            Container.BindInterfacesAndSelfTo<KernelProbe>().FromInstance(probe);
+            ZenjectManagersInstaller.Install(Container);
+            Container.ResolveRoots();
+            var kernel = Container.InstantiateComponentOnNewGameObject<TestKernel>();
+            try
+            {
+                Assert.Throws(() => kernel.Initialize());
+                kernel.Update();
+                kernel.FixedUpdate();
+                kernel.LateUpdate();
+                kernel.OnDestroy();
+                Assert.IsEqual(probe.Ticks, 0);
+                Assert.IsEqual(probe.Unregistrations, failInitialize ? 0 : 1);
+                Assert.IsEqual(probe.Disposals, 1);
+                Assert.IsEqual(probe.LateDisposals, 1);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(kernel.gameObject);
+            }
+        }
+
     }
 }

@@ -56,13 +56,6 @@ namespace Zenject
 
             _lateInitializables = _lateInitializables.OrderBy(x => x.Priority).ToList();
 
-#if UNITY_EDITOR
-            foreach (var lateInitializable in _lateInitializables.Select(x => x.LateInitializable).GetDuplicates())
-            {
-                Assert.That(false, "Found duplicate ILateInitializable with type '{0}'".Fmt(lateInitializable.GetType()));
-            }
-#endif
-
             foreach (var lateInitializable in _lateInitializables)
             {
                 try

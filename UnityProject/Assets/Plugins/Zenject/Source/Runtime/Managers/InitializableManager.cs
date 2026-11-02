@@ -56,13 +56,6 @@ namespace Zenject
 
             _initializables = _initializables.OrderBy(x => x.Priority).ToList();
 
-#if UNITY_EDITOR
-            foreach (var initializable in _initializables.Select(x => x.Initializable).GetDuplicates())
-            {
-                Assert.That(false, "Found duplicate IInitializable with type '{0}'".Fmt(initializable.GetType()));
-            }
-#endif
-
             foreach (var initializable in _initializables)
             {
                 try

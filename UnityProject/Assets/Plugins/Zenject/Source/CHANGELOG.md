@@ -1,3 +1,10 @@
+# 9.3.1
+
+- Remove the duplicate lifecycle-root checks: a stage called twice surfaces where the game calls it.
+- Unregister only attempted roots after partial startup, continuing cleanup when one unregistration fails.
+- Stop kernel ticks after failed startup or shutdown and complete disposal once, with late disposal in finally.
+- Distribute through the existing release/9.3.0 Git branch; no GitHub Actions workflows are introduced.
+
 # 9.3.0
 
 - Repository distribution: consume the fork directly from GitHub release/9.3.0; GitHub Actions workflows have been removed.
