@@ -4,8 +4,7 @@
     "references": [
         "Unity.Addressables",
         "Unity.ResourceManager",
-        "UniTask",
-        "GamesMayer.Lifecycle"
+        "UniTask"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

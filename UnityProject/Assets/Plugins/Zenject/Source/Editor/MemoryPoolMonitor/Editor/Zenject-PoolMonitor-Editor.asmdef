@@ -2,8 +2,7 @@
     "name": "Zenject-PoolMonitor-Editor",
     "references": [
         "Zenject",
-        "Zenject-Editor",
-        "GamesMayer.Lifecycle"
+        "Zenject-Editor"
     ],
     "includePlatforms": [
         "Editor"

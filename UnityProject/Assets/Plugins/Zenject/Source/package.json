@@ -1,6 +1,6 @@
 {
   "name": "com.gamesmayer.zenject",
-  "version": "9.4.0",
+  "version": "9.4.1",
   "displayName": "Zenject",
   "description": "\ud83d\udc89 Dependency injection framework for Unity.",
   "unity": "6000.0",
@@ -23,9 +23,7 @@
     "game development"
   ],
   "license": "MIT",
-  "dependencies": {
-    "com.gamesmayer.lifecycle": "0.3.0"
-  },
+  "dependencies": {},
   "samples": [
     {
       "displayName": "Sample Game 1 (beginner)",

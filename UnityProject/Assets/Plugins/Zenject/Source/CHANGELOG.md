@@ -1,3 +1,7 @@
+# 9.4.1
+
+- Consume the GamesMayer.Lifecycle library DLL supplied by Framework Core. Remove the retired Lifecycle UPM dependency and asmdef references; assemblies with explicit plugin references name GamesMayer.Lifecycle.dll. Lifecycle contracts retain their namespace and assembly identity.
+
 # 9.4.0
 
 - Breaking: requires com.gamesmayer.lifecycle 0.3.0. `GamesMayer.Lifecycle.IDeinitializable` replaces `ILateDisposable` as a lifecycle stage: after UnregisterEvents, `DeinitializableManager` deinitializes the roots whose Initialize was reached, in reverse priority, before the container's `IDisposable` pass. `BindDeinitializableExecutionOrder` and `BindExecutionOrder` cover it.

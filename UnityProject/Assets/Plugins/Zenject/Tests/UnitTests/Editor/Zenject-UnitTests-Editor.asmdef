@@ -4,8 +4,7 @@
         "Zenject",
         "Zenject-TestFramework",
         "UnityEngine.TestRunner",
-        "UnityEditor.TestRunner",
-        "GamesMayer.Lifecycle"
+        "UnityEditor.TestRunner"
     ],
     "includePlatforms": [
         "Editor"
@@ -15,7 +14,8 @@
     "overrideReferences": true,
     "precompiledReferences": [
         "Zenject-usage.dll",
-        "nunit.framework.dll"
+        "nunit.framework.dll",
+        "GamesMayer.Lifecycle.dll"
     ],
     "autoReferenced": false,
     "defineConstraints": [

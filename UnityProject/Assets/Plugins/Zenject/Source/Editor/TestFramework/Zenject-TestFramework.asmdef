@@ -3,15 +3,15 @@
     "references": [
         "Zenject",
         "UnityEngine.TestRunner",
-        "UnityEditor.TestRunner",
-        "GamesMayer.Lifecycle"
+        "UnityEditor.TestRunner"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": true,
     "precompiledReferences": [
-        "nunit.framework.dll"
+        "nunit.framework.dll",
+        "GamesMayer.Lifecycle.dll"
     ],
     "autoReferenced": false,
     "defineConstraints": [],

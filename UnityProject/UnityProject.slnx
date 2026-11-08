@@ -1,15 +1,20 @@
-﻿<Solution>
+<Solution>
+  <Project Path="GamesMayer.Framework.Core.csproj" />
   <Project Path="Zenject-IntegrationTests.csproj" />
   <Project Path="Zenject.csproj" />
   <Project Path="Zenject-TestFramework.csproj" />
   <Project Path="Zenject-UnitTests-Editor.csproj" />
   <Project Path="Zenject-Editor.csproj" />
+  <Project Path="DOTween.Modules.csproj" />
+  <Project Path="GamesMayer.Framework.Core.Editor.csproj" />
   <Project Path="Zenject-IntegrationTests-Editor.csproj" />
-  <Project Path="Zenject-PoolMonitor-Editor.csproj" />
   <Project Path="Zenject-ReflectionBaking-Editor.csproj" />
-  <Project Path="Extenject-Addressable-Tests.csproj" />
   <Project Path="Assembly-CSharp-Editor.csproj" />
+  <Project Path="Sirenix.OdinInspector.Modules.Unity.Addressables.csproj" />
+  <Project Path="Sirenix.OdinInspector.Modules.UnityMathematics.csproj" />
+  <Project Path="Zenject-PoolMonitor-Editor.csproj" />
+  <Project Path="Zenject-EditorTests.csproj" />
+  <Project Path="Extenject-Addressable-Tests.csproj" />
   <Project Path="Async.Tests.csproj" />
   <Project Path="Assembly-CSharp.csproj" />
-  <Project Path="Zenject-EditorTests.csproj" />
 </Solution>

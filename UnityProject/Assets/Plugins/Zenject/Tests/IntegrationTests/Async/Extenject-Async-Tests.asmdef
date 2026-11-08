@@ -5,8 +5,7 @@
         "Zenject",
         "UnityEngine.TestRunner",
         "Extenject-Async",
-        "UniTask",
-        "GamesMayer.Lifecycle"
+        "UniTask"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -14,7 +13,8 @@
     "overrideReferences": true,
     "precompiledReferences": [
         "nunit.framework.dll",
-        "Zenject-usage.dll"
+        "Zenject-usage.dll",
+        "GamesMayer.Lifecycle.dll"
     ],
     "autoReferenced": false,
     "defineConstraints": [

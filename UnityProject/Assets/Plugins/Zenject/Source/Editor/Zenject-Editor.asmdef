@@ -1,8 +1,7 @@
 {
     "name": "Zenject-Editor",
     "references": [
-        "Zenject",
-        "GamesMayer.Lifecycle"
+        "Zenject"
     ],
     "includePlatforms": [
         "Editor"
