@@ -1,6 +1,6 @@
 {
   "name": "com.gamesmayer.zenject",
-  "version": "9.4.1",
+  "version": "9.4.2",
   "displayName": "Zenject",
   "description": "\ud83d\udc89 Dependency injection framework for Unity.",
   "unity": "6000.0",

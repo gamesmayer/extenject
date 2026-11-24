@@ -1,3 +1,7 @@
+# 9.4.2
+
+- Fix an editor leak: pools bound with an id (every `FromPoolableMemoryPool` and `FromMonoPoolableMemoryPool`) weren't in their `DisposableManager`'s list, so they stayed in `StaticMemoryPoolRegistry` with their items and container after the scene unloaded. Each pool now joins its container's `DisposableManager` when it is built, and `Dispose` runs once.
+
 # 9.4.1
 
 - Consume the GamesMayer.Lifecycle library DLL supplied by Framework Core. Remove the retired Lifecycle UPM dependency and asmdef references; assemblies with explicit plugin references name GamesMayer.Lifecycle.dll. Lifecycle contracts retain their namespace and assembly identity.

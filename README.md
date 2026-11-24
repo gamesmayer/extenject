@@ -1094,7 +1094,7 @@ When calling installers from other installers it is common to want to pass param
 The fork is consumed directly from its GitHub release branch. This repository no longer runs GitHub Actions; validate its Unity tests locally before updating a release branch.
 
 
-The GAMESMAYER fork consumes lifecycle interfaces from **GamesMayer.Lifecycle**. Install `com.gamesmayer.framework.core` together with Zenject 9.4.1; Core supplies the `GamesMayer.Lifecycle.dll` library, and import the common namespace:
+The GAMESMAYER fork consumes lifecycle interfaces from **GamesMayer.Lifecycle**. Install `com.gamesmayer.framework.core` together with Zenject 9.4.2; Core supplies the `GamesMayer.Lifecycle.dll` library, and import the common namespace:
 
 ```csharp
 using GamesMayer.Lifecycle;
