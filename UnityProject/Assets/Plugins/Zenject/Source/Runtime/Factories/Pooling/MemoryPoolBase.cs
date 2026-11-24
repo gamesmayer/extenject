@@ -47,6 +47,7 @@ namespace Zenject
         DiContainer _container;
 
         int _activeCount;
+        bool _disposed;
 
         [Inject]
         void Construct(
@@ -74,6 +75,13 @@ namespace Zenject
 #if UNITY_EDITOR
             StaticMemoryPoolRegistry.Add(this);
 #endif
+
+            // Pools bound with an id (every FromPoolableMemoryPool) aren't in the DisposableManager's list,
+            // so they join their container's directly and are disposed with it.
+            if (!container.IsValidating)
+            {
+                container.TryResolve<DisposableManager>()?.Add(this);
+            }
         }
 
         protected DiContainer Container
@@ -108,6 +116,12 @@ namespace Zenject
 
         public void Dispose()
         {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
 #if UNITY_EDITOR
             StaticMemoryPoolRegistry.Remove(this);
 #endif
